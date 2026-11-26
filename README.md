@@ -2,13 +2,15 @@
 
 An end-to-end machine learning system and interactive retention simulator built on the IBM Telco Customer Churn dataset (`7,043` customers, `26.54%` churn rate). Rather than outputting static risk scores alone, the app attributes **per-customer churn drivers** using XGBoost tree contributions (`pred_contribs`), ranks **what-if retention levers** (contract upgrades, support/security add-ons, auto-pay enrollment), and surfaces a **prioritized at-risk action list**.
 
-> **Live Interactive Demo:** *Deploying on Streamlit Community Cloud — link will be updated here shortly.*
+> **Live Interactive Demo:** [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://vishal-churn-retention.streamlit.app/) — **[Launch Customer Churn & Retention Engine](https://vishal-churn-retention.streamlit.app/)**
+>
+> ![Live Streamlit App](figures/live_demo_ui.png)
 
 ---
 
 ## Key Results vs. Baseline
 
-- **77.0% recall on churners at 55.3% precision** (`F1 = 0.644`, `ROC-AUC = 0.847`, tuned XGBoost @ threshold `0.5641`), compared to **49.8% precision** (`F1 = 0.611`) for the Logistic Regression baseline (**+5.5 pp precision**, **+3.3 pp F1**) and **52.0% precision** (`F1 = 0.631`) for tuned XGBoost at the default `0.50` threshold.
+- **77.0% recall on churners at 55.3% precision** (`F1 = 0.644`, `ROC-AUC = 0.847`, tuned XGBoost @ threshold `0.5641`), compared to **49.8% precision** (`F1 = 0.611`) for the Logistic Regression baseline (**+5.5 pp precision**, **+3.3 pp F1**) and **52.0% precision** (`F1 = 0.631`) for tuned XGBoost at the default `0.50` threshold *(the live Streamlit Cloud runtime selects threshold `0.595` on its newer XGBoost build, yielding **73.5% recall** at **57.9% precision**, `F1 = 0.648`, `+8.1 pp` precision over baseline)*.
 - **2.55x targeting lift:** Contacting the top **20%** highest-risk customers captures **51.1%** of all churners; top **30%** captures **66.8%** (`2.23x` lift); top **40%** captures **78.6%** (`1.97x` lift).
 
 ![System Architecture](figures/02_system_architecture.png)
