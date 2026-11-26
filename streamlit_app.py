@@ -79,7 +79,7 @@ def build_runtime():
         comparison.append({
             "Model": name,
             "Threshold": 0.50,
-            "ROC-AUC": r4(roc_auc_score(y_te, p)),
+            "ROC AUC": r4(roc_auc_score(y_te, p)),
             "Accuracy": r4(accuracy_score(y_te, yhat)),
             "Precision": r4(precision_score(y_te, yhat)),
             "Recall": r4(recall_score(y_te, yhat)),
@@ -106,7 +106,7 @@ def build_runtime():
     comparison.append({
         "Model": "XGBoost (Tuned)",
         "Threshold": round(best_thr, 4),
-        "ROC-AUC": r4(roc_auc_score(y_te, p_t)),
+        "ROC AUC": r4(roc_auc_score(y_te, p_t)),
         "Accuracy": r4(accuracy_score(y_te, yhat_t)),
         "Precision": r4(precision_score(y_te, yhat_t)),
         "Recall": r4(recall_score(y_te, yhat_t)),
@@ -169,21 +169,21 @@ lr_row = comp_df.loc[comp_df["Model"] == "Logistic Regression (Baseline)"].iloc[
 xgb_row = comp_df.loc[comp_df["Model"] == "XGBoost (Tuned)"].iloc[0]
 
 st.title("Customer Churn & Retention Engine")
-st.caption("IBM Telco Customer Churn (n = 7,043) · Tuned XGBoost · Exact Per-Customer Drivers · What-If Retention Simulator")
+st.caption("IBM Telco Customer Churn (n = 7,043) · Tuned XGBoost · Individual Customer Drivers · Retention Scenario Simulator")
 
 st.info(
     f"**Headline Result:** Tuned XGBoost achieves **{xgb_row['Recall']*100:.1f}% recall** on churners at "
-    f"**{xgb_row['Precision']*100:.1f}% precision** (F1 **{xgb_row['F1']:.3f}**, ROC-AUC **{xgb_row['ROC-AUC']:.3f}**), "
+    f"**{xgb_row['Precision']*100:.1f}% precision** (F1 **{xgb_row['F1']:.3f}**, ROC AUC **{xgb_row['ROC AUC']:.3f}**), "
     f"compared to **{lr_row['Precision']*100:.1f}% precision** (F1 **{lr_row['F1']:.3f}**) for the Logistic Regression baseline "
     f"(**+{(xgb_row['Precision'] - lr_row['Precision'])*100:.1f} pp precision**, **+{(xgb_row['F1'] - lr_row['F1']):.3f} F1**). "
-    "Targeting the top 20% highest-risk customers captures **51.1%** of all churners (**2.55x lift**)."
+    "Targeting the top 20% highest risk customers captures **51.1%** of all churners (**2.55x lift**)."
 )
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "Overview & Segments",
     "Model Performance",
     "Predict & Retention Simulator",
-    "Prioritized At-Risk Action List",
+    "Prioritized At Risk Action List",
 ])
 
 with tab1:
@@ -199,7 +199,7 @@ with tab1:
         f"{xgb_row['F1']:.3f}",
         f"+{(xgb_row['F1'] - lr_row['F1']):.3f} vs {lr_row['F1']:.3f} LR",
     )
-    c4.metric("Top 20% Targeting Capture", "51.1% of churners", "2.55x lift over random")
+    c4.metric("Top 20% Targeting Capture", "51.1%", "2.55x lift over random")
 
     st.subheader("Churn Rate by Customer Segment")
     col_a, col_b = st.columns(2)
@@ -214,11 +214,11 @@ with tab1:
         st.markdown("**By Payment Method**")
         st.bar_chart(rt["segments"]["PaymentMethod"].set_index("Segment")["Churn Rate (%)"])
 
-    st.subheader("Cumulative Gains by Risk Decile (Held-Out Test Set)")
+    st.subheader("Cumulative Gains by Risk Decile (Test Set)")
     st.dataframe(rt["gains"], use_container_width=True, hide_index=True)
 
 with tab2:
-    st.subheader("5-Model Benchmark vs. Tuned XGBoost (Held-Out Test Set, n = 1,409)")
+    st.subheader("Five Model Benchmark vs. Tuned XGBoost (Test Set, n = 1,409)")
     disp = comp_df.copy()
     for col in ["Accuracy", "Precision", "Recall"]:
         disp[col] = (disp[col] * 100).map(lambda v: f"{v:.1f}%")
@@ -247,14 +247,14 @@ with tab2:
             col.image(str(fpath), caption=cap, use_container_width=True)
 
 with tab3:
-    st.subheader("Customer Risk & What-If Retention Simulator")
+    st.subheader("Customer Risk & Retention Scenario Simulator")
     if "sample_rec" not in st.session_state:
         st.session_state.sample_rec = pred.sample("high")["record"]
 
     b1, b2, b3, _ = st.columns([1, 1, 1, 3])
-    if b1.button("Load High-Risk Customer"):
+    if b1.button("Load High Risk Customer"):
         st.session_state.sample_rec = pred.sample("high")["record"]
-    if b2.button("Load Low-Risk Customer"):
+    if b2.button("Load Low Risk Customer"):
         st.session_state.sample_rec = pred.sample("low")["record"]
     if b3.button("Load Random Customer"):
         st.session_state.sample_rec = pred.sample("random")["record"]
@@ -295,7 +295,7 @@ with tab3:
         k2.metric("Decision Flag", "FLAGGED AT RISK" if res["flagged"] else "Below Threshold",
                   f"Threshold: {res['threshold']*100:.1f}%")
 
-        st.markdown("**Top Per-Customer Risk Drivers (XGBoost Log-Odds Impact)**")
+        st.markdown("**Top Individual Risk Drivers (XGBoost Contributions)**")
         drv_df = pd.DataFrame([
             {
                 "Feature": d["text"],
@@ -306,7 +306,7 @@ with tab3:
         ])
         st.dataframe(drv_df, use_container_width=True, hide_index=True)
 
-        st.markdown("**Actionable What-If Retention Levers**")
+        st.markdown("**Actionable Retention Levers**")
         if res.get("levers"):
             lev_df = pd.DataFrame([
                 {
@@ -319,10 +319,10 @@ with tab3:
             ])
             st.dataframe(lev_df, use_container_width=True, hide_index=True)
         else:
-            st.success("Customer is already on low-risk terms; no major risk-reducing levers available.")
+            st.success("Customer is already on low risk terms; no major risk reducing levers available.")
 
 with tab4:
-    st.subheader("Top 25 Highest-Risk Customers (Held-Out Test Set)")
+    st.subheader("Top 25 Highest Risk Customers (Test Set)")
     at_risk_df = pd.DataFrame(pred.at_risk).rename(columns={
         "id": "Customer ID",
         "p": "Churn Probability",
@@ -336,7 +336,7 @@ with tab4:
     at_risk_df["Churn Probability"] = (at_risk_df["Churn Probability"] * 100).round(1)
     st.dataframe(at_risk_df, use_container_width=True, hide_index=True)
     st.download_button(
-        "Download At-Risk Action List (CSV)",
+        "Download At Risk Action List (CSV)",
         at_risk_df.to_csv(index=False).encode("utf-8"),
         file_name="prioritized_at_risk_customers.csv",
         mime="text/csv",
