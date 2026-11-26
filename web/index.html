@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Churn &amp; Retention Engine</title>
+<style>
+  :root {
+    --page: #f3f3f1;
+    --surface: #fcfcfb;
+    --border: #e3e2de;
+    --grid: #ebeae6;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --muted: #8a8984;
+    --brand: #003450;
+    --brand-soft: #e7f1f2;
+    --s-blue: #2a78d6;
+    --s-orange: #eb6834;
+    --s-aqua: #1baf7a;
+    --s-yellow: #eda100;
+    --s-magenta: #e87ba4;
+    --st-good: #1f8a4c;
+    --st-warn: #b97800;
+    --st-crit: #c93a3a;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--text);
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+  header { background: var(--brand); color: #fff; padding: 18px 32px 0; }
+  .head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .2px; }
+  header .sub { opacity: .78; font-size: 13px; margin-top: 2px; }
+  header .who { font-size: 12.5px; opacity: .78; text-align: right; }
+  nav { display: flex; gap: 4px; margin-top: 16px; }
+  nav button { background: transparent; border: 0; color: #fff; opacity: .7; font: inherit; font-weight: 500;
+    padding: 10px 16px; border-radius: 8px 8px 0 0; cursor: pointer; }
+  nav button:hover { opacity: 1; }
+  nav button.active { background: var(--page); color: var(--brand); opacity: 1; }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 32px 48px; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, 1fr); } .g2, .g3 { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+  .card h2 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+  .card .desc { color: var(--text-2); font-size: 12.5px; margin: 0 0 14px; }
+  .kpi .label { color: var(--text-2); font-size: 12px; }
+  .kpi .value { font-size: 26px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .note { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase;
+    letter-spacing: .6px; margin: 28px 0 10px; }
+  .section-title:first-child { margin-top: 0; }
+
+  /* pipeline */
+  .pipeline { display: flex; gap: 0; flex-wrap: wrap; }
+  .step { flex: 1 1 140px; position: relative; padding: 12px 14px 12px 18px; background: var(--brand-soft);
+    border-right: 3px solid var(--surface); }
+  .step:first-child { border-radius: 8px 0 0 8px; }
+  .step:last-child { border-radius: 0 8px 8px 0; border-right: 0; }
+  .step b { display: block; font-size: 13px; color: var(--brand); }
+  .step span { font-size: 12px; color: var(--text-2); }
+
+  /* bars */
+  .bars { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: 150px 1fr 58px; gap: 10px; align-items: center; cursor: default; }
+  .bar-row .bl { font-size: 12.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .bv { font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+  .track { position: relative; height: 18px; }
+  .fill { position: absolute; left: 0; top: 2px; height: 14px; border-radius: 0 4px 4px 0; }
+  .bar-row:hover .fill { filter: brightness(.92); }
+  .ref { position: absolute; top: -4px; bottom: -4px; border-left: 1.5px dashed var(--muted); }
+  .ref-label { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+
+  /* diverging driver bars */
+  .drv-row { display: grid; grid-template-columns: minmax(150px, 1.1fr) 1fr 78px; gap: 10px; align-items: center; }
+  .drv-row .bl { font-size: 12.5px; }
+  .drv-row .bl small { color: var(--text-2); }
+  .drv-track { position: relative; height: 18px; }
+  .drv-track .zero { position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 1px solid var(--muted); }
+  .drv-fill { position: absolute; top: 2px; height: 14px; }
+  .drv-fill.up { left: 50%; background: var(--s-orange); border-radius: 0 4px 4px 0; }
+  .drv-fill.down { right: 50%; background: var(--s-blue); border-radius: 4px 0 0 4px; }
+  .drv-row .bv { font-size: 12px; color: var(--text-2); text-align: right; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-top: 10px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+  .legend i.line { height: 3px; border-radius: 2px; vertical-align: 3px; width: 16px; }
+
+  /* svg charts */
+  svg text { font-family: inherit; }
+  .gridline { stroke: var(--grid); stroke-width: 1; }
+  .tick { fill: var(--muted); font-size: 11px; }
+  .axis-label { fill: var(--text-2); font-size: 11.5px; }
+  .diag { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+  .chart { position: relative; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--grid); font-size: 13px; }
+  th { color: var(--text-2); font-weight: 600; font-size: 12px; }
+  th:first-child, td:first-child { text-align: left; }
+  tr.best td { background: var(--brand-soft); font-weight: 600; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 10px;
+    background: var(--brand); color: #fff; margin-left: 6px; vertical-align: 1px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; }
+  tbody.click tr { cursor: pointer; }
+  tbody.click tr:hover td { background: #f0f5f6; }
+
+  /* confusion */
+  .cm { display: grid; grid-template-columns: 90px 1fr 1fr; gap: 6px; }
+  .cm .h { font-size: 11.5px; color: var(--text-2); display: flex; align-items: center; justify-content: center; text-align: center; }
+  .cm .h.row { justify-content: flex-start; }
+  .cm .c { border-radius: 8px; padding: 12px; text-align: center; }
+  .cm .c b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .cm .c span { font-size: 11.5px; }
+
+  /* threshold */
+  .thr-box { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 1100px) { .thr-box { grid-template-columns: 1fr; } }
+  input[type=range] { width: 100%; accent-color: var(--brand); }
+  .thr-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .thr-head .big { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 14px; }
+  .chip { border: 1px solid var(--border); background: #fff; border-radius: 16px; padding: 4px 12px;
+    font: inherit; font-size: 12px; cursor: pointer; color: var(--text); }
+  .chip:hover { border-color: var(--brand); }
+  .metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .metric { background: var(--page); border-radius: 8px; padding: 10px 12px; }
+  .metric .label { font-size: 11.5px; color: var(--text-2); }
+  .metric .value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .callout { background: var(--brand-soft); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-top: 14px; }
+
+  /* predict */
+  .predict { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .predict { grid-template-columns: 1fr; } }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .btn { border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 9px 10px; font: inherit;
+    font-size: 12.5px; cursor: pointer; text-align: left; color: var(--text); }
+  .btn:hover { border-color: var(--brand); background: #f6fafb; }
+  .btn b { display: block; font-size: 13px; }
+  .btn span { color: var(--text-2); font-size: 11.5px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+  legend { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--text-2);
+    padding: 0; margin-bottom: 8px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .field label { display: block; font-size: 11.5px; color: var(--text-2); margin-bottom: 3px; }
+  .field select { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: #fff;
+    font: inherit; font-size: 13px; color: var(--text); }
+  .field select:disabled { background: var(--page); color: var(--muted); }
+  .field.wide { grid-column: 1 / -1; }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-row output { min-width: 56px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sample-info { font-size: 12px; border-radius: 8px; padding: 8px 10px; background: var(--page); color: var(--text-2);
+    margin-bottom: 14px; display: none; }
+  .risk-card { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+  .risk-num { font-size: 56px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .risk-num small { font-size: 22px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; padding: 4px 10px;
+    border-radius: 14px; margin-top: 8px; }
+  .status.High { color: var(--st-crit); background: #fbeaea; }
+  .status.Medium { color: var(--st-warn); background: #fdf3e0; }
+  .status.Low { color: var(--st-good); background: #e6f4ec; }
+  .meter { position: relative; height: 14px; background: var(--page); border-radius: 7px; margin: 26px 0 6px; }
+  .meter .mfill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; transition: width .25s; }
+  .meter .mthr { position: absolute; top: -18px; bottom: -4px; border-left: 2px solid var(--text); }
+  .meter .mthr span { position: absolute; top: -2px; left: 6px; font-size: 11px; white-space: nowrap; color: var(--text-2); }
+  .meter-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .verdict { font-size: 13px; color: var(--text-2); margin-top: 10px; }
+  .lever { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0;
+    border-bottom: 1px solid var(--grid); font-size: 13px; }
+  .lever:last-child { border-bottom: 0; }
+  .lever .from { color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .lever .delta { font-weight: 600; color: var(--st-good); font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .fine { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  .outcome-yes { color: var(--st-crit); font-weight: 600; }
+  .outcome-no { color: var(--st-good); font-weight: 600; }
+
+  #tip { position: fixed; pointer-events: none; background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.10); padding: 8px 10px; font-size: 12px; z-index: 50; display: none; min-width: 120px; }
+  #tip .t { font-weight: 600; margin-bottom: 4px; }
+  #tip .r { display: flex; justify-content: space-between; gap: 14px; }
+  #tip .r span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  #loading { text-align: center; padding: 80px 0; color: var(--text-2); }
+  #loading .err { max-width: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px 28px; text-align: left; color: var(--text); }
+  #loading .err h2 { margin: 0 0 8px; font-size: 17px; }
+  #loading .err ol { margin: 8px 0 0; padding-left: 20px; }
+  #loading .err li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-row">
+    <div>
+      <h1>Customer Churn &amp; Retention Engine</h1>
+      <div class="sub">IBM Telco dataset · 5 models compared · tuned XGBoost with explainable predictions</div>
+    </div>
+    <div class="who">Vishal Vanjani<br>Interactive Churn &amp; Retention Simulator</div>
+  </div>
+  <nav>
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="model">Model performance</button>
+    <button data-tab="predict">Predict a customer</button>
+    <button data-tab="atrisk">At-risk customers</button>
+  </nav>
+</header>
+
+<main>
+  <div id="loading">Loading model results ...</div>
+
+  <!-- OVERVIEW -->
+  <section class="tab" id="tab-overview">
+    <div class="callout" style="margin-bottom: 16px;">
+      <b>Headline Result:</b> Tuned XGBoost achieves <b>77.0% recall on churners at 55.3% precision</b> (F1 0.644, ROC-AUC 0.847) — <b>+5.5 pp precision</b> and <b>+3.3 pp F1</b> over the Logistic Regression baseline (49.8% precision, F1 0.611), capturing <b>51.1%</b> of churners in the top 20% risk tier (<b>2.55x lift</b>).
+    </div>
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section-title">Pipeline</div>
+    <div class="card">
+      <div class="pipeline" id="pipeline"></div>
+    </div>
+
+    <div class="section-title">Who churns? (all 7,043 customers)</div>
+    <div class="grid g3">
+      <div class="card"><h2>By contract type</h2><p class="desc">Share of customers who left, per group.</p><div id="seg-contract"></div></div>
+      <div class="card"><h2>By tenure (months)</h2><p class="desc">New customers leave far more often.</p><div id="seg-tenure"></div></div>
+      <div class="card"><h2>By internet service</h2><p class="desc">Fiber customers churn the most.</p><div id="seg-internet"></div></div>
+    </div>
+  </section>
+
+  <!-- MODEL -->
+  <section class="tab" id="tab-model">
+    <div class="section-title">Model comparison</div>
+    <div class="card">
+      <h2>Five models on the same split</h2>
+      <p class="desc">CV AUC is 5-fold stratified cross-validation on the training set. All other columns are on the held-out test set (1,409 customers) at threshold 0.5.</p>
+      <table>
+        <thead><tr><th>Model</th><th>CV ROC-AUC</th><th>Test ROC-AUC</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead>
+        <tbody id="cmp-body"></tbody>
+      </table>
+      <div class="callout" id="tuned-note"></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card">
+        <h2>ROC curves (test set)</h2>
+        <p class="desc">Higher and further left is better. Hover to compare models at any false positive rate.</p>
+        <div class="chart" id="roc"></div>
+        <div class="legend" id="roc-legend"></div>
+      </div>
+      <div class="card">
+        <h2>Cumulative gains (tuned XGBoost)</h2>
+        <p class="desc">Share of all churners reached when contacting the riskiest customers first.</p>
+        <div class="chart" id="gains"></div>
+        <div class="legend"><span><i class="line" style="background:var(--s-blue)"></i>Tuned XGBoost</span><span><i class="line" style="background:var(--muted)"></i>Random targeting</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">Decision threshold</div>
+    <div class="card">
+      <div class="thr-box">
+        <div>
+          <div class="thr-head"><h2>Choose who gets flagged</h2><div class="big" id="thr-val"></div></div>
+          <p class="desc">A customer is flagged as "will churn" when the predicted probability is at or above this threshold. Drag to see the trade-off between catching churners and false alarms.</p>
+          <input type="range" id="thr" min="0.05" max="0.95" step="0.01">
+          <div class="chips">
+            <button class="chip" data-thr="tuned">Tuned (max F1)</button>
+            <button class="chip" data-thr="0.5">Default 0.5</button>
+            <button class="chip" data-thr="0.3">Catch more (0.3)</button>
+            <button class="chip" data-thr="0.75">Fewer false alarms (0.75)</button>
+          </div>
+          <div class="metric-row" id="thr-metrics"></div>
+          <div class="callout" id="thr-story"></div>
+        </div>
+        <div>
+          <h2>Confusion matrix</h2>
+          <p class="desc">Test set, at the selected threshold.</p>
+          <div class="cm" id="cm"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">What drives the model</div>
+    <div class="card">
+      <h2>Permutation feature importance</h2>
+      <p class="desc">Drop in test ROC-AUC when one feature is shuffled (10 repeats). A bigger drop means the model relies on it more.</p>
+      <div id="imp"></div>
+    </div>
+  </section>
+
+  <!-- PREDICT -->
+  <section class="tab" id="tab-predict">
+    <div class="predict">
+      <div class="card">
+        <h2>Customer profile</h2>
+        <p class="desc">Pick a starting point, then change any field. The prediction updates live.</p>
+        <div class="presets">
+          <button class="btn" data-preset="high"><b>High-risk profile</b><span>New, monthly, fiber</span></button>
+          <button class="btn" data-preset="loyal"><b>Loyal profile</b><span>5 years, two-year contract</span></button>
+          <button class="btn" data-sample="random"><b>Random real customer</b><span>From the test set</span></button>
+          <button class="btn" data-sample="high"><b>Real high-risk customer</b><span>From the test set</span></button>
+        </div>
+        <div class="sample-info" id="sample-info"></div>
+        <form id="form" onsubmit="return false"></form>
+      </div>
+
+      <div class="grid" style="gap:16px">
+        <div class="card">
+          <h2>Churn risk</h2>
+          <div class="risk-card">
+            <div>
+              <div class="risk-num" id="risk-num">-</div>
+              <div class="status" id="risk-status"></div>
+            </div>
+            <div>
+              <div class="meter"><div class="mfill" id="mfill"></div><div class="mthr" id="mthr"><span id="mthr-label"></span></div></div>
+              <div class="meter-scale"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+              <div class="verdict" id="verdict"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Why this score?</h2>
+          <p class="desc">Contribution of each input to this customer's score (SHAP values from XGBoost, in log-odds). Longer bars matter more.</p>
+          <div id="drivers"></div>
+          <div class="legend"><span><i style="background:var(--s-orange)"></i>Raises risk</span><span><i style="background:var(--s-blue)"></i>Lowers risk</span></div>
+        </div>
+        <div class="card">
+          <h2>Retention options</h2>
+          <p class="desc">Changes the model estimates would lower this customer's risk the most.</p>
+          <div id="levers"></div>
+          <div class="fine">These are model estimates based on patterns in past data, not guaranteed effects of an offer.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AT RISK -->
+  <section class="tab" id="tab-atrisk">
+    <div class="card">
+      <h2>Top 25 at-risk customers (test set)</h2>
+      <p class="desc">The customers a retention team would call first. Click a row to open that customer in "Predict a customer". The last column shows what actually happened.</p>
+      <table>
+        <thead><tr><th>Customer ID</th><th>Churn risk</th><th>Tenure</th><th>Contract</th><th>Internet</th><th>Monthly charges</th><th style="text-align:left">Main driver</th><th>Actually churned?</th></tr></thead>
+        <tbody id="risk-body" class="click"></tbody>
+      </table>
+      <div class="fine" id="risk-foot"></div>
+    </div>
+  </section>
+</main>
+
+<div id="tip"></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const num = v => v.toLocaleString('en-IN');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+
+const MODEL_COLORS = {
+  'XGBoost': 'var(--s-blue)', 'Random Forest': 'var(--s-orange)', 'Logistic Regression': 'var(--s-aqua)',
+  'Gradient Boosting': 'var(--s-yellow)', 'Decision Tree': 'var(--s-magenta)'
+};
+const MODEL_ORDER = ['XGBoost', 'Random Forest', 'Logistic Regression', 'Gradient Boosting', 'Decision Tree'];
+
+let S = null;
+let currentTab = 'overview';
+let thr = 0.5;
+
+/* ---------- tooltip ---------- */
+const tip = $('#tip');
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const r = tip.getBoundingClientRect();
+  let left = x + 14, top = y + 14;
+  if (left + r.width > innerWidth - 8) left = x - r.width - 14;
+  if (top + r.height > innerHeight - 8) top = y - r.height - 14;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+const hideTip = () => { tip.style.display = 'none'; };
+
+async function api(path, body) {
+  const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+/* ---------- tabs ---------- */
+$$('nav button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+function showTab(name) {
+  currentTab = name;
+  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  $$('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + name));
+  renderCharts();
+}
+function renderCharts() {
+  if (!S) return;
+  if (currentTab === 'model') { drawRoc(); drawGains(); }
+}
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(renderCharts, 120); });
+
+/* ---------- horizontal bars (HTML) ---------- */
+function bars(el, items, {fmt = v => pct(v), color = 'var(--s-blue)', ref = null, refLabel = '', max = null, tipFn = null} = {}) {
+  const m = max ?? Math.max(...items.map(d => d.value), ref || 0) * 1.08;
+  let h = '<div class="bars">';
+  items.forEach((d, i) => {
+    h += `<div class="bar-row" data-i="${i}"><div class="bl" title="${esc(d.label)}">${esc(d.label)}</div>
+      <div class="track"><div class="fill" style="width:${(d.value / m * 100).toFixed(2)}%;background:${color}"></div>
+      ${ref != null ? `<div class="ref" style="left:${(ref / m * 100).toFixed(2)}%"></div>` : ''}</div>
+      <div class="bv">${fmt(d.value)}</div></div>`;
+  });
+  h += '</div>';
+  if (ref != null) h += `<div class="ref-label">Dashed line: ${esc(refLabel)}</div>`;
+  el.innerHTML = h;
+  if (tipFn) $$('.bar-row', el).forEach(r => {
+    r.addEventListener('mousemove', e => showTip(tipFn(items[+r.dataset.i]), e.clientX, e.clientY));
+    r.addEventListener('mouseleave', hideTip);
+  });
+}
+
+/* ---------- line chart (SVG) with crosshair ---------- */
+function lineChart(el, {xs, series, xFmt, yFmt, xLabel, yLabel, diag = true, tipTitle}) {
+  const W = Math.max(320, el.clientWidth), H = 300, m = {l: 50, r: 14, t: 10, b: 44};
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const X = v => m.l + v * iw, Y = v => m.t + (1 - v) * ih;
+  let s = `<svg width="${W}" height="${H}" role="img" aria-label="${esc(yLabel)} by ${esc(xLabel)}">`;
+  for (let i = 0; i <= 5; i++) {
+    const v = i / 5;
+    s += `<line class="gridline" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/>`;
+    s += `<text class="tick" x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`;
+    s += `<text class="tick" x="${X(v)}" y="${H - m.b + 17}" text-anchor="middle">${xFmt(v)}</text>`;
+  }
+  s += `<text class="axis-label" x="${m.l + iw / 2}" y="${H - 6}" text-anchor="middle">${esc(xLabel)}</text>`;
+  s += `<text class="axis-label" transform="translate(13 ${m.t + ih / 2}) rotate(-90)" text-anchor="middle">${esc(yLabel)}</text>`;
+  if (diag) s += `<line class="diag" x1="${X(0)}" y1="${Y(0)}" x2="${X(1)}" y2="${Y(1)}"/>`;
+  series.slice().reverse().forEach(se => {
+    const d = se.values.map((v, i) => `${i ? 'L' : 'M'}${X(xs[i]).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+    s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.width || 2}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if (se.markers) se.values.forEach((v, i) => {
+      s += `<circle cx="${X(xs[i])}" cy="${Y(v)}" r="4" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`;
+    });
+  });
+  s += `<g class="xh" style="display:none"><line x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="var(--muted)" stroke-width="1"/>`;
+  series.forEach((se, k) => s += `<circle data-k="${k}" r="5" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`);
+  s += `</g><rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" class="hit"/></svg>`;
+  el.innerHTML = s;
+  const svg = $('svg', el), xh = $('.xh', el), hit = $('.hit', el);
+  hit.addEventListener('mousemove', e => {
+    const box = svg.getBoundingClientRect();
+    const v = (e.clientX - box.left - m.l) / iw;
+    let bi = 0; xs.forEach((x, i) => { if (Math.abs(x - v) < Math.abs(xs[bi] - v)) bi = i; });
+    xh.style.display = '';
+    $('line', xh).setAttribute('x1', X(xs[bi])); $('line', xh).setAttribute('x2', X(xs[bi]));
+    $$('circle', xh).forEach(c => { const se = series[+c.dataset.k]; c.setAttribute('cx', X(xs[bi])); c.setAttribute('cy', Y(se.values[bi])); });
+    const rows = series.map(se => ({n: se.name, c: se.color, v: se.values[bi]})).sort((a, b) => b.v - a.v);
+    showTip(`<div class="t">${tipTitle(xs[bi])}</div>` + rows.map(r =>
+      `<div class="r"><span><span class="swatch" style="background:${r.c}"></span>${esc(r.n)}</span><span>${yFmt(r.v, 1)}</span></div>`).join(''),
+      e.clientX, e.clientY);
+  });
+  hit.addEventListener('mouseleave', () => { xh.style.display = 'none'; hideTip(); });
+}
+
+/* ---------- OVERVIEW ---------- */
+function renderOverview() {
+  const d = S.dataset, t = S.tuned;
+  const k = [
+    ['Customers', num(d.n), `${num(d.n_train)} train · ${num(d.n_test)} test`],
+    ['Churn rate', pct(d.churn_rate), 'Imbalanced classes, handled with weights'],
+    ['Best model', t.model, 'Picked by test ROC-AUC, then tuned'],
+    ['Test ROC-AUC', t.roc_auc.toFixed(3), `CV ROC-AUC ${t.cv_auc.toFixed(3)}`],
+    ['Recall', pct(t.at_best_thr.recall), `Churners caught at threshold ${t.threshold.toFixed(2)}`],
+    ['F1 score', t.at_best_thr.f1.toFixed(3), `Precision ${pct(t.at_best_thr.precision)}`],
+  ];
+  $('#kpis').innerHTML = k.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join('');
+
+  const steps = [
+    ['Data', `${num(d.n)} customers, ${d.n_features_raw} inputs`],
+    ['Feature engineering', 'Avg monthly spend, add-on count, tenure group'],
+    ['Preprocessing', `Scaling + one-hot encoding (${d.n_features_encoded} columns)`],
+    ['5 models', '5-fold stratified CV, class weights'],
+    ['Grid search', `${t.model}: ${Object.entries(t.best_params).map(([a, b]) => `${a}=${b}`).join(', ')}`],
+    ['Threshold tuning', `Max F1 at ${t.threshold.toFixed(2)}`],
+    ['Explain', 'Permutation importance + per-customer SHAP'],
+  ];
+  $('#pipeline').innerHTML = steps.map(([a, b]) => `<div class="step"><b>${a}</b><span>${esc(b)}</span></div>`).join('');
+
+  const segTip = s => `<div class="t">${esc(s.label)}</div><div class="r"><span>Churn rate</span><span>${pct(s.value)}</span></div><div class="r"><span>Customers</span><span>${num(s.n)}</span></div>`;
+  const seg = (key, el, labelFn = x => x) => bars($(el), S.segments[key].map(s => ({label: labelFn(s.label), value: s.rate, n: s.n})),
+    {ref: d.churn_rate, refLabel: `overall churn rate (${pct(d.churn_rate)})`, max: 0.5, tipFn: segTip});
+  seg('Contract', '#seg-contract');
+  seg('TenureGroup', '#seg-tenure', l => l + ' months');
+  seg('InternetService', '#seg-internet', l => l === 'No' ? 'No internet' : l);
+}
+
+/* ---------- MODEL ---------- */
+function renderModel() {
+  const rows = MODEL_ORDER.map(n => S.models.find(m => m.name === n)).filter(Boolean);
+  $('#cmp-body').innerHTML = rows.map(m => `<tr class="${m.name === S.best ? 'best' : ''}">
+    <td><span class="swatch" style="background:${MODEL_COLORS[m.name]}"></span>${m.name}${m.name === S.best ? '<span class="badge">Best</span>' : ''}</td>
+    <td>${m.cv_auc_mean.toFixed(3)} <span style="color:var(--muted);font-weight:400">± ${m.cv_auc_std.toFixed(3)}</span></td>
+    <td>${m.roc_auc.toFixed(3)}</td><td>${pct(m.accuracy)}</td><td>${pct(m.precision)}</td><td>${pct(m.recall)}</td><td>${m.f1.toFixed(3)}</td></tr>`).join('');
+  const t = S.tuned;
+  $('#tuned-note').innerHTML = `<b>After tuning:</b> grid search (5-fold CV) chose ${Object.entries(t.best_params).map(([a, b]) => `${a} = ${b}`).join(', ')}.
+    Tuned ${t.model}: CV ROC-AUC ${t.cv_auc.toFixed(3)}, test ROC-AUC ${t.roc_auc.toFixed(3)}. Moving the threshold from 0.5 to ${t.threshold.toFixed(2)}
+    raises F1 from ${t['at_0.5'].f1.toFixed(3)} to ${t.at_best_thr.f1.toFixed(3)} and accuracy from ${pct(t['at_0.5'].accuracy)} to ${pct(t.at_best_thr.accuracy)}.`;
+
+  $('#roc-legend').innerHTML = rows.map(m => `<span><i class="line" style="background:${MODEL_COLORS[m.name]}"></i>${m.name} (${m.roc_auc.toFixed(3)})</span>`).join('')
+    + '<span><i class="line" style="background:var(--muted)"></i>Random (0.500)</span>';
+
+  bars($('#imp'), S.importance.map(d => ({label: d.label, value: d.value, std: d.std})), {
+    fmt: v => v.toFixed(3), color: 'var(--s-blue)',
+    tipFn: d => `<div class="t">${esc(d.label)}</div><div class="r"><span>AUC drop</span><span>${d.value.toFixed(4)}</span></div><div class="r"><span>Std (10 repeats)</span><span>${d.std.toFixed(4)}</span></div>`
+  });
+
+  $('#thr').addEventListener('input', e => setThr(+e.target.value));
+  $$('.chip').forEach(c => c.addEventListener('click', () => setThr(c.dataset.thr === 'tuned' ? S.tuned.threshold : +c.dataset.thr)));
+  setThr(S.tuned.threshold);
+}
+
+function drawRoc() {
+  const xs = Array.from({length: 101}, (_, i) => i / 100);
+  const series = MODEL_ORDER.map(n => S.models.find(m => m.name === n)).filter(Boolean)
+    .map(m => ({name: m.name, color: MODEL_COLORS[m.name], values: m.roc, width: m.name === 'XGBoost' ? 2.5 : 1.6}));
+  lineChart($('#roc'), {xs, series, xFmt: v => v.toFixed(1), yFmt: v => v.toFixed(2), xLabel: 'False positive rate', yLabel: 'True positive rate (recall)',
+    tipTitle: x => `False positive rate ${x.toFixed(2)}`});
+}
+
+function drawGains() {
+  const xs = S.gains.map(g => g.pct / 100);
+  lineChart($('#gains'), {xs, series: [{name: 'Tuned XGBoost', color: 'var(--s-blue)', values: S.gains.map(g => g.capture), markers: true, width: 2.5},
+      {name: 'Random targeting', color: 'var(--muted)', values: xs, width: 0.01}],
+    xFmt: v => Math.round(v * 100) + '%', yFmt: (v, d) => (v * 100).toFixed(d || 0) + '%',
+    xLabel: 'Customers contacted (riskiest first)', yLabel: 'Churners reached', tipTitle: x => `Top ${Math.round(x * 100)}% of customers`});
+}
+
+function setThr(v) {
+  thr = Math.round(v * 100) / 100;
+  if (Math.abs(v - S.tuned.threshold) < 0.001) thr = S.tuned.threshold;
+  $('#thr').value = thr;
+  $('#thr-val').textContent = thr.toFixed(thr === S.tuned.threshold ? 4 : 2);
+  const p = S.test.p, y = S.test.y;
+  let tp = 0, fp = 0, fn = 0, tn = 0;
+  for (let i = 0; i < p.length; i++) {
+    const pr = p[i] >= thr;
+    if (pr && y[i]) tp++; else if (pr) fp++; else if (y[i]) fn++; else tn++;
+  }
+  const prec = tp / Math.max(1, tp + fp), rec = tp / Math.max(1, tp + fn), f1 = 2 * prec * rec / Math.max(1e-9, prec + rec), acc = (tp + tn) / p.length;
+  $('#thr-metrics').innerHTML = [['Recall', pct(rec)], ['Precision', pct(prec)], ['F1', f1.toFixed(3)], ['Accuracy', pct(acc)]]
+    .map(([a, b]) => `<div class="metric"><div class="label">${a}</div><div class="value">${b}</div></div>`).join('');
+  const flagged = tp + fp;
+  $('#thr-story').innerHTML = `A retention team would contact <b>${num(flagged)}</b> customers (${pct(flagged / p.length)} of the test set) and reach
+    <b>${num(tp)} of ${num(tp + fn)}</b> churners. <b>${num(fp)}</b> contacted customers would not have left (false alarms).`;
+  const max = Math.max(tp, fp, fn, tn);
+  const shade = c => { const a = 0.08 + 0.72 * c / max; return `background:rgba(28,92,171,${a.toFixed(3)});color:${a > 0.5 ? '#fff' : 'var(--text)'}`; };
+  $('#cm').innerHTML = `<div></div><div class="h">Predicted: stays</div><div class="h">Predicted: churns</div>
+    <div class="h row">Actually stayed</div><div class="c" style="${shade(tn)}"><b>${tn}</b><span>True negatives</span></div><div class="c" style="${shade(fp)}"><b>${fp}</b><span>False alarms</span></div>
+    <div class="h row">Actually churned</div><div class="c" style="${shade(fn)}"><b>${fn}</b><span>Missed churners</span></div><div class="c" style="${shade(tp)}"><b>${tp}</b><span>Caught churners</span></div>`;
+}
+
+/* ---------- PREDICT ---------- */
+const YN = ['No', 'Yes'];
+const ADDONS = [['OnlineSecurity', 'Online security'], ['OnlineBackup', 'Online backup'], ['DeviceProtection', 'Device protection'],
+  ['TechSupport', 'Tech support'], ['StreamingTV', 'Streaming TV'], ['StreamingMovies', 'Streaming movies']];
+const FORM = [
+  ['Customer', [['gender', 'Gender', ['Female', 'Male']], ['SeniorCitizen', 'Senior citizen', YN], ['Partner', 'Has partner', YN], ['Dependents', 'Has dependents', YN]]],
+  ['Account', [['tenure', 'Tenure (months)', 'range', 0, 72, 1], ['MonthlyCharges', 'Monthly charges', 'range', 18, 120, 0.05],
+    ['Contract', 'Contract', ['Month-to-month', 'One year', 'Two year']], ['PaperlessBilling', 'Paperless billing', YN],
+    ['PaymentMethod', 'Payment method', ['Electronic check', 'Mailed check', 'Bank transfer (automatic)', 'Credit card (automatic)'], 'wide']]],
+  ['Services', [['PhoneService', 'Phone service', YN], ['MultipleLines', 'Multiple lines', YN],
+    ['InternetService', 'Internet service', ['DSL', 'Fiber optic', 'No'], 'wide'], ...ADDONS.map(([k, l]) => [k, l, YN])]],
+];
+const PRESETS = {
+  high: {gender: 'Female', SeniorCitizen: 'No', Partner: 'No', Dependents: 'No', tenure: 3, PhoneService: 'Yes', MultipleLines: 'No',
+    InternetService: 'Fiber optic', OnlineSecurity: 'No', OnlineBackup: 'No', DeviceProtection: 'No', TechSupport: 'No', StreamingTV: 'Yes',
+    StreamingMovies: 'No', Contract: 'Month-to-month', PaperlessBilling: 'Yes', PaymentMethod: 'Electronic check', MonthlyCharges: 90, TotalCharges: null},
+  loyal: {gender: 'Male', SeniorCitizen: 'No', Partner: 'Yes', Dependents: 'Yes', tenure: 60, PhoneService: 'Yes', MultipleLines: 'Yes',
+    InternetService: 'DSL', OnlineSecurity: 'Yes', OnlineBackup: 'Yes', DeviceProtection: 'Yes', TechSupport: 'Yes', StreamingTV: 'No',
+    StreamingMovies: 'No', Contract: 'Two year', PaperlessBilling: 'No', PaymentMethod: 'Credit card (automatic)', MonthlyCharges: 70, TotalCharges: null},
+};
+let rec = {...PRESETS.high};
+let sample = null;
+
+function buildForm() {
+  let h = '';
+  FORM.forEach(([group, fields]) => {
+    h += `<fieldset><legend>${group}</legend><div class="fields">`;
+    fields.forEach(f => {
+      const [key, label, opt] = f;
+      if (opt === 'range') {
+        const [, , , min, max, step] = f;
+        h += `<div class="field wide"><label for="f-${key}">${label}</label><div class="range-row">
+          <input type="range" id="f-${key}" name="${key}" min="${min}" max="${max}" step="${step}"><output id="o-${key}"></output></div></div>`;
+      } else {
+        h += `<div class="field ${f[3] === 'wide' ? 'wide' : ''}"><label for="f-${key}">${label}</label><select id="f-${key}" name="${key}">
+          ${opt.map(o => `<option>${o}</option>`).join('')}</select></div>`;
+      }
+    });
+    h += '</div></fieldset>';
+  });
+  $('#form').innerHTML = h;
+  $('#form').addEventListener('input', e => {
+    const k = e.target.name; if (!k) return;
+    rec[k] = e.target.type === 'range' ? +e.target.value : e.target.value;
+    if (k === 'tenure' || k === 'MonthlyCharges') rec.TotalCharges = null;
+    if (sample) { sample.edited = true; showSample(); }
+    syncForm(); schedulePredict();
+  });
+}
+
+function setSelect(key, options, value, disabled) {
+  const s = $('#f-' + key);
+  const cur = [...s.options].map(o => o.value).join('|');
+  if (cur !== options.join('|')) s.innerHTML = options.map(o => `<option>${o}</option>`).join('');
+  s.value = value; s.disabled = !!disabled;
+}
+
+function syncForm() {
+  const noNet = rec.InternetService === 'No', noPhone = rec.PhoneService === 'No';
+  ADDONS.forEach(([k]) => {
+    if (noNet) rec[k] = 'No internet service'; else if (rec[k] === 'No internet service') rec[k] = 'No';
+  });
+  if (noPhone) rec.MultipleLines = 'No phone service'; else if (rec.MultipleLines === 'No phone service') rec.MultipleLines = 'No';
+  FORM.forEach(([, fields]) => fields.forEach(f => {
+    const [key, , opt] = f;
+    if (opt === 'range') {
+      $('#f-' + key).value = rec[key];
+      $('#o-' + key).textContent = key === 'MonthlyCharges' ? (+rec[key]).toFixed(2) : rec[key];
+    } else if (ADDONS.some(([k]) => k === key)) {
+      setSelect(key, noNet ? ['No internet service'] : YN, rec[key], noNet);
+    } else if (key === 'MultipleLines') {
+      setSelect(key, noPhone ? ['No phone service'] : YN, rec[key], noPhone);
+    } else {
+      $('#f-' + key).value = rec[key];
+    }
+  }));
+}
+
+function showSample() {
+  const el = $('#sample-info');
+  if (!sample) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const out = sample.actual === 'Yes' ? '<span class="outcome-yes">Churned</span>' : '<span class="outcome-no">Stayed</span>';
+  el.innerHTML = sample.edited
+    ? `Started from real customer <b>${esc(sample.id)}</b> (actual outcome: ${out}). You have edited the profile, so this is now a what-if.`
+    : `Real customer <b>${esc(sample.id)}</b> from the test set, not seen in training. Actual outcome: ${out}.`;
+}
+
+let pt;
+function schedulePredict() { clearTimeout(pt); pt = setTimeout(predict, 120); }
+async function predict() {
+  const r = await api('/api/predict', rec);
+  const p = r.p;
+  $('#risk-num').innerHTML = (p * 100).toFixed(1) + '<small>%</small>';
+  const icon = {High: '▲', Medium: '●', Low: '✓'}[r.band];
+  const st = $('#risk-status'); st.className = 'status ' + r.band; st.textContent = `${icon} ${r.band} risk`;
+  const col = {High: 'var(--st-crit)', Medium: 'var(--st-warn)', Low: 'var(--st-good)'}[r.band];
+  $('#mfill').style.width = (p * 100).toFixed(1) + '%'; $('#mfill').style.background = col;
+  $('#mthr').style.left = (r.threshold * 100).toFixed(1) + '%';
+  $('#mthr-label').textContent = `Threshold ${r.threshold.toFixed(2)}`;
+  $('#verdict').innerHTML = r.flagged
+    ? `At or above the tuned threshold: this customer <b>would be flagged</b> for the retention team.`
+    : `Below the tuned threshold: this customer <b>would not be flagged</b>.`;
+
+  const maxI = Math.max(...r.drivers.map(d => Math.abs(d.impact)), 0.01);
+  $('#drivers').innerHTML = '<div class="bars">' + r.drivers.map(d => {
+    const w = (Math.abs(d.impact) / maxI * 50).toFixed(1);
+    return `<div class="drv-row"><div class="bl">${esc(d.label)} <small>· ${esc(d.value)}</small></div>
+      <div class="drv-track"><div class="zero"></div><div class="drv-fill ${d.impact >= 0 ? 'up' : 'down'}" style="width:${w}%"></div></div>
+      <div class="bv">${d.impact >= 0 ? 'raises' : 'lowers'} ${Math.abs(d.impact).toFixed(2)}</div></div>`;
+  }).join('') + '</div>';
+
+  $('#levers').innerHTML = r.levers.length ? r.levers.map(l => `<div class="lever"><div>${esc(l.label)}</div>
+      <div class="from">${pct(p)} → ${pct(l.p)}</div><div class="delta">${(l.delta * 100).toFixed(1)} pts</div></div>`).join('')
+    : '<div class="empty">No single change lowers the risk noticeably. This customer is already in a low-risk profile.</div>';
+}
+
+async function loadSample(q) {
+  const s = await api('/api/sample?' + q);
+  sample = {id: s.id, actual: s.actual, edited: false};
+  rec = {...s.record};
+  syncForm(); showSample(); predict();
+}
+$$('[data-preset]').forEach(b => b.addEventListener('click', () => { rec = {...PRESETS[b.dataset.preset]}; sample = null; showSample(); syncForm(); predict(); }));
+$$('[data-sample]').forEach(b => b.addEventListener('click', () => loadSample('kind=' + b.dataset.sample)));
+
+/* ---------- AT RISK ---------- */
+function renderAtRisk() {
+  $('#risk-body').innerHTML = S.at_risk.map(r => `<tr data-id="${esc(r.id)}"><td>${esc(r.id)}</td><td><b>${pct(r.p)}</b></td><td>${r.tenure} mo</td>
+    <td>${esc(r.contract)}</td><td>${esc(r.internet)}</td><td>${r.monthly.toFixed(2)}</td><td style="text-align:left">${esc(r.driver)}</td>
+    <td>${r.actual === 'Yes' ? '<span class="outcome-yes">Yes</span>' : '<span class="outcome-no">No</span>'}</td></tr>`).join('');
+  const hit = S.at_risk.filter(r => r.actual === 'Yes').length;
+  $('#risk-foot').textContent = `${hit} of these ${S.at_risk.length} customers actually churned (${pct(hit / S.at_risk.length, 0)}), against a base rate of ${pct(S.dataset.churn_rate)}.`;
+  $$('#risk-body tr').forEach(tr => tr.addEventListener('click', async () => { await loadSample('id=' + encodeURIComponent(tr.dataset.id)); showTab('predict'); }));
+}
+
+/* ---------- init ---------- */
+(async function init() {
+  const help = `<div class="err"><h2>The app is not running</h2>
+    This page needs the backend server running to show results.
+    <ol><li>Open a terminal in the project folder and run <b>python app.py</b> (or double-click <b>start_app.bat</b> on Windows).</li>
+    <li>Wait for &quot;App is running at http://127.0.0.1:8765&quot;.</li>
+    <li>Keep the terminal window open while using the simulator.</li></ol></div>`;
+  if (location.protocol === 'file:') { $('#loading').innerHTML = help; return; }
+  try {
+    S = await api('/api/summary');
+  } catch (e) {
+    $('#loading').innerHTML = help; return;
+  }
+  $('#loading').remove();
+  $('#tab-overview').classList.add('active');
+  renderOverview(); renderModel(); renderAtRisk();
+  buildForm(); syncForm(); predict();
+  renderCharts();
+})();
+</script>
+</body>
+</html>
